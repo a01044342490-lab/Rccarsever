@@ -4,35 +4,44 @@ const bodyParser = require('body-parser');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-//ㅁㄴㅇㄹ
-
+// JSON 파싱
 app.use(bodyParser.json());
-app.use(express.static('public'));  // public 폴더의 index.html 제공
 
-// 최신 데이터 저장용 (메모리)
+// public 폴더(index.html) 정적 페이지 제공
+app.use(express.static('public'));
+
+// 최신 데이터 저장 변수
 let latestData = {
-  AC_pct: 0,
-  BR_pct: 0,
+  AC: 0,
+  BR: 0,
   lat: 0,
   lon: 0,
   time: ""
 };
 
-// ESP01/ESP32에서 데이터를 업로드하는 엔드포인트
+// *********************
+//  RC CAR → SERVER 업로드
+// *********************
 app.post('/upload', (req, res) => {
   console.log("📩 RC카에서 수신:", req.body);
+
+  // JSON 업데이트
   latestData = {
     ...req.body,
     time: new Date().toLocaleString()
   };
-  res.send({ status: "OK" });
+
+  res.json({ status: "OK" });
 });
 
-// 브라우저/프론트엔드에서 데이터를 가져가는 엔드포인트
+// *********************
+//  브라우저 → 서버에서 데이터 읽기
+// *********************
 app.get('/data', (req, res) => {
-  res.send(latestData);
+  res.json(latestData);
 });
 
+// 서버 실행
 app.listen(PORT, () => {
-  console.log(`🚀 Node 서버 실행 중: 포트 ${PORT}`);
+  console.log(`🚀 Node 서버 실행 중: http://localhost:${PORT}`);
 });
