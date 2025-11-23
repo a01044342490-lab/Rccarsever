@@ -2,62 +2,125 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>RC CAR 위치 모니터</title>
+  <title>RC CAR GPS 모니터</title>
   <style>
-    body { 
-      font-family: Arial; 
-      background: #fafafa; 
+    body {
+      font-family: Arial, sans-serif;
+      background: #fafafa;
       margin: 20px;
     }
+
     .card {
       background: #fff;
-      border-radius: 8px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
       padding: 15px;
-      max-width: 400px;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+      max-width: 500px;
     }
-    .map-link {
-      margin-top: 10px;
-      display: inline-block;
-      padding: 10px 15px;
-      background: #4285F4;
-      color: white;
-      border-radius: 6px;
-      text-decoration: none;
-      font-weight: bold;
+
+    .map-thumb {
+      display: block;
+      width: 100%;
+      height: 120px;
+      background-size: cover;
+      background-position: center;
+      border-radius: 8px;
+      margin-top: 8px;
+      border: 1px solid #ccc;
+      cursor: pointer;
+    }
+
+    .event-item {
+      background: #fff;
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    }
+
+    .event-info {
+      margin-bottom: 6px;
     }
   </style>
 </head>
+
 <body>
 
-  <h2>RC CAR GPS 모니터</h2>
+  <h2>🚗 RC CAR 실시간 상태</h2>
 
+  <!-- 현재 상태 -->
   <div class="card">
     <p><b>위도(lat):</b> <span id="lat">---</span></p>
     <p><b>경도(lon):</b> <span id="lon">---</span></p>
 
-    <!-- ⭐ 구글맵 링크 버튼 -->
-    <a id="mapLink" class="map-link" href="#" target="_blank">
-      📍 구글맵으로 위치 보기
+    <a id="mapLink" href="#" target="_blank">
+      <div id="liveMapThumb" class="map-thumb"></div>
     </a>
   </div>
 
-  <script>
-    async function loadData() {
-      const res = await fetch('/data');
-      const data = await res.json();
+  <h2>📜 급발진 사고 기록</h2>
+  <div id="eventList"></div>
 
-      document.getElementById('lat').textContent = data.lat;
-      document.getElementById('lon').textContent = data.lon;
 
-      // ⭐ 링크 방식: 용량 최소 / 클릭 시 지도 열림
-      document.getElementById('mapLink').href =
-        `https://www.google.com/maps?q=${data.lat},${data.lon}`;
+<script>
+  // === 최신 데이터 로드 ===
+  async function loadData() {
+    const res = await fetch('/data');
+    const data = await res.json();
+
+    document.getElementById('lat').textContent = data.lat;
+    document.getElementById('lon').textContent = data.lon;
+
+    const mapURL = `https://www.google.com/maps?q=${data.lat},${data.lon}`;
+    document.getElementById('mapLink').href = mapURL;
+
+    // 썸네일 (정적 이미지처럼 보이지만 클릭되면 지도 페이지로 이동)
+    document.getElementById('liveMapThumb').style.backgroundImage =
+      `url("https://maps.googleapis.com/maps/api/staticmap?center=${data.lat},${data.lon}&zoom=16&size=400x200&markers=color:red|${data.lat},${data.lon}&key=AIzaSyDUMMYKEY")`;
+  }
+
+  // === 급발진 기록 목록 로드 ===
+  async function loadEvents() {
+    const res = await fetch('/events');
+    const events = await res.json();
+
+    const container = document.getElementById('eventList');
+    container.innerHTML = "";
+
+    if (events.length === 0) {
+      container.innerHTML = "<p>기록 없음</p>";
+      return;
     }
 
-    loadData();
-    setInterval(loadData, 3000);
-  </script>
+    // 최신 먼저 보기 (원하면 reverse() 제거)
+    const reversed = events.slice().reverse();
+
+    reversed.forEach(ev => {
+      const eventDiv = document.createElement('div');
+      eventDiv.className = "event-item";
+
+      const mapURL = `https://www.google.com/maps?q=${ev.lat},${ev.lon}`;
+
+      eventDiv.innerHTML = `
+        <div class="event-info"><b>시간:</b> ${ev.time}</div>
+        <div class="event-info"><b>AC:</b> ${ev.AC} / <b>BR:</b> ${ev.BR}</div>
+
+        <a href="${mapURL}" target="_blank">
+          <div class="map-thumb"
+            style="background-image: url('https://maps.googleapis.com/maps/api/staticmap?center=${ev.lat},${ev.lon}&zoom=15&size=400x200&markers=color:red|${ev.lat},${ev.lon}&key=AIzaSyDUMMYKEY');">
+          </div>
+        </a>
+      `;
+      container.appendChild(eventDiv);
+    });
+  }
+
+  loadData();
+  loadEvents();
+  setInterval(loadData, 3000);
+  setInterval(loadEvents, 5000);
+</script>
 
 </body>
 </html>
