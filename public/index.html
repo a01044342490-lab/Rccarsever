@@ -2,125 +2,174 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>RC CAR GPS 모니터</title>
+  <title>RC CAR 급발진 모니터</title>
   <style>
     body {
       font-family: Arial, sans-serif;
-      background: #fafafa;
+      background: #f5f5f5;
       margin: 20px;
     }
-
+    h1 {
+      margin-bottom: 10px;
+    }
     .card {
-      background: #fff;
-      padding: 15px;
+      background: #ffffff;
       border-radius: 10px;
+      padding: 15px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.1);
       margin-bottom: 20px;
-      max-width: 500px;
+      max-width: 600px;
     }
-
-    .map-thumb {
-      display: block;
-      width: 100%;
-      height: 120px;
-      background-size: cover;
-      background-position: center;
-      border-radius: 8px;
+    .label {
+      font-weight: bold;
+    }
+    .map-link {
+      display: inline-block;
       margin-top: 8px;
-      border: 1px solid #ccc;
-      cursor: pointer;
+      padding: 8px 12px;
+      border-radius: 6px;
+      background: #4285f4;
+      color: #fff;
+      text-decoration: none;
+      font-size: 0.9rem;
     }
-
-    .event-item {
-      background: #fff;
-      border-radius: 10px;
-      padding: 12px;
-      margin-bottom: 12px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    .map-link.disabled {
+      background: #999;
+      pointer-events: none;
     }
-
-    .event-info {
-      margin-bottom: 6px;
+    #eventList .event-item {
+      background: #ffffff;
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 10px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+    #eventList .event-item small {
+      color: #555;
     }
   </style>
 </head>
-
 <body>
 
-  <h2>🚗 RC CAR 실시간 상태</h2>
+  <h1>🚗 RC CAR 급발진 모니터</h1>
 
-  <!-- 현재 상태 -->
+  <!-- 현재 상태 카드 -->
   <div class="card">
-    <p><b>위도(lat):</b> <span id="lat">---</span></p>
-    <p><b>경도(lon):</b> <span id="lon">---</span></p>
+    <h2>현재 상태</h2>
+    <p><span class="label">AC 압력:</span> <span id="ac">0</span> %</p>
+    <p><span class="label">BR 압력:</span> <span id="br">0</span> %</p>
+    <p><span class="label">위도(lat):</span> <span id="lat">0</span></p>
+    <p><span class="label">경도(lon):</span> <span id="lon">0</span></p>
+    <p><span class="label">시간:</span> <span id="time">-</span></p>
 
-    <a id="mapLink" href="#" target="_blank">
-      <div id="liveMapThumb" class="map-thumb"></div>
+    <a id="mapLink" class="map-link disabled" href="#" target="_blank">
+      📍 구글맵으로 위치 보기
     </a>
   </div>
 
-  <h2>📜 급발진 사고 기록</h2>
-  <div id="eventList"></div>
+  <!-- 급발진 사고 기록 -->
+  <div class="card">
+    <h2>📜 급발진 사고 기록</h2>
+    <div id="eventList">
+      <p>기록을 불러오는 중...</p>
+    </div>
+  </div>
 
+  <script>
+    // /data 에서 현재 상태 가져오기
+    async function loadCurrentData() {
+      try {
+        const res = await fetch('/data');
+        if (!res.ok) throw new Error('response not ok');
+        const data = await res.json();
 
-<script>
-  // === 최신 데이터 로드 ===
-  async function loadData() {
-    const res = await fetch('/data');
-    const data = await res.json();
+        document.getElementById('ac').textContent = data.AC ?? 0;
+        document.getElementById('br').textContent = data.BR ?? 0;
+        document.getElementById('lat').textContent = data.lat ?? 0;
+        document.getElementById('lon').textContent = data.lon ?? 0;
+        document.getElementById('time').textContent = data.time ?? '-';
 
-    document.getElementById('lat').textContent = data.lat;
-    document.getElementById('lon').textContent = data.lon;
+        const mapLinkEl = document.getElementById('mapLink');
 
-    const mapURL = `https://www.google.com/maps?q=${data.lat},${data.lon}`;
-    document.getElementById('mapLink').href = mapURL;
+        // 서버에서 googleMapUrl을 보내주면 그대로 사용, 아니면 lat/lon으로 생성
+        let mapUrl = data.googleMapUrl;
+        if (!mapUrl && data.lat && data.lon) {
+          mapUrl = `https://www.google.com/maps?q=${data.lat},${data.lon}`;
+        }
 
-    // 썸네일 (정적 이미지처럼 보이지만 클릭되면 지도 페이지로 이동)
-    document.getElementById('liveMapThumb').style.backgroundImage =
-      `url("https://maps.googleapis.com/maps/api/staticmap?center=${data.lat},${data.lon}&zoom=16&size=400x200&markers=color:red|${data.lat},${data.lon}&key=AIzaSyDUMMYKEY")`;
-  }
+        if (mapUrl && data.lat != 0 && data.lon != 0) {
+          mapLinkEl.href = mapUrl;
+          mapLinkEl.classList.remove('disabled');
+        } else {
+          mapLinkEl.href = '#';
+          mapLinkEl.classList.add('disabled');
+        }
 
-  // === 급발진 기록 목록 로드 ===
-  async function loadEvents() {
-    const res = await fetch('/events');
-    const events = await res.json();
-
-    const container = document.getElementById('eventList');
-    container.innerHTML = "";
-
-    if (events.length === 0) {
-      container.innerHTML = "<p>기록 없음</p>";
-      return;
+      } catch (err) {
+        console.error('loadCurrentData error:', err);
+      }
     }
 
-    // 최신 먼저 보기 (원하면 reverse() 제거)
-    const reversed = events.slice().reverse();
+    // /events 에서 급발진 기록 가져오기
+    async function loadEvents() {
+      try {
+        const res = await fetch('/events');
+        if (!res.ok) throw new Error('response not ok');
+        const events = await res.json();
 
-    reversed.forEach(ev => {
-      const eventDiv = document.createElement('div');
-      eventDiv.className = "event-item";
+        const container = document.getElementById('eventList');
+        container.innerHTML = '';
 
-      const mapURL = `https://www.google.com/maps?q=${ev.lat},${ev.lon}`;
+        if (!events || events.length === 0) {
+          container.innerHTML = '<p>기록 없음</p>';
+          return;
+        }
 
-      eventDiv.innerHTML = `
-        <div class="event-info"><b>시간:</b> ${ev.time}</div>
-        <div class="event-info"><b>AC:</b> ${ev.AC} / <b>BR:</b> ${ev.BR}</div>
+        // 최신 기록이 위로 오도록 뒤집기
+        const reversed = events.slice().reverse();
 
-        <a href="${mapURL}" target="_blank">
-          <div class="map-thumb"
-            style="background-image: url('https://maps.googleapis.com/maps/api/staticmap?center=${ev.lat},${ev.lon}&zoom=15&size=400x200&markers=color:red|${ev.lat},${ev.lon}&key=AIzaSyDUMMYKEY');">
-          </div>
-        </a>
-      `;
-      container.appendChild(eventDiv);
-    });
-  }
+        reversed.forEach((ev, idx) => {
+          const div = document.createElement('div');
+          div.className = 'event-item';
 
-  loadData();
-  loadEvents();
-  setInterval(loadData, 3000);
-  setInterval(loadEvents, 5000);
-</script>
+          const ac = ev.AC ?? 0;
+          const br = ev.BR ?? 0;
+          const lat = ev.lat ?? 0;
+          const lon = ev.lon ?? 0;
+          const time = ev.time ?? '-';
 
+          let mapUrl = ev.googleMapUrl;
+          if (!mapUrl && lat && lon) {
+            mapUrl = `https://www.google.com/maps?q=${lat},${lon}`;
+          }
+
+          div.innerHTML = `
+            <div><strong>#${reversed.length - idx}</strong></div>
+            <div><span class="label">시간:</span> ${time}</div>
+            <div><span class="label">AC:</span> ${ac} % / <span class="label">BR:</span> ${br} %</div>
+            <div><span class="label">위도:</span> ${lat} / <span class="label">경도:</span> ${lon}</div>
+            ${mapUrl && lat != 0 && lon != 0
+              ? `<div><a href="${mapUrl}" target="_blank" class="map-link">📍 이 위치를 구글맵에서 보기</a></div>`
+              : `<div><small>위치 정보 없음</small></div>`
+            }
+          `;
+          container.appendChild(div);
+        });
+
+      } catch (err) {
+        console.error('loadEvents error:', err);
+        const container = document.getElementById('eventList');
+        container.innerHTML = '<p>기록을 불러오는 중 오류가 발생했습니다.</p>';
+      }
+    }
+
+    // 최초 1회 로드
+    loadCurrentData();
+    loadEvents();
+
+    // 주기적으로 갱신 (필요하면 간격 조정)
+    setInterval(loadCurrentData, 3000); // 3초마다 현재 상태
+    setInterval(loadEvents, 5000);      // 5초마다 이벤트 목록
+  </script>
 </body>
 </html>
